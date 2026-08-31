@@ -90,6 +90,27 @@
     .status.correcao { background:#FDECD9; color:#B45309; }
     .acoes button:hover { filter:brightness(1.07); }
 
+    /* MODAL JANELAS DO SISTEMA */
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1000; display:flex; align-items:center; justify-content:center; animation:fadeIn .15s ease; }
+    .modal-overlay.oculto { display:none; }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+    .modal-janela { background:#fff; border-radius:14px; box-shadow:0 8px 40px rgba(0,0,0,.22); width:100%; max-width:400px; margin:16px; animation:slideUp .18s ease; overflow:hidden; }
+    @keyframes slideUp { from{transform:translateY(18px);opacity:0} to{transform:translateY(0);opacity:1} }
+    .modal-header { background:linear-gradient(120deg,var(--laranja-hover),var(--laranja)); color:#fff; padding:18px 20px 16px; display:flex; align-items:center; gap:10px; }
+    .modal-header .modal-icone { font-size:20px; flex:none; }
+    .modal-header .modal-titulo { font-size:15px; font-weight:700; flex:1; }
+    .modal-corpo { padding:20px; }
+    .modal-corpo p { margin:0 0 14px; font-size:14px; color:var(--grafite); line-height:1.5; }
+    .modal-corpo textarea, .modal-corpo input[type=text] { width:100%; padding:10px 12px; border:1px solid var(--linha); border-radius:10px; font-size:14px; font-family:inherit; resize:vertical; min-height:72px; box-sizing:border-box; }
+    .modal-corpo textarea:focus, .modal-corpo input[type=text]:focus { outline:none; border-color:var(--laranja); box-shadow:0 0 0 3px rgba(245,130,32,.18); }
+    .modal-rodape { display:flex; gap:10px; justify-content:flex-end; padding:0 20px 20px; }
+    .modal-rodape button { padding:10px 22px; border-radius:9px; font-size:14px; font-weight:700; font-family:inherit; border:none; cursor:pointer; transition:filter .15s; }
+    .modal-rodape button:hover { filter:brightness(1.08); }
+    .modal-btn-ok { background:var(--laranja); color:#fff; }
+    .modal-btn-ok.verde { background:var(--verde); }
+    .modal-btn-ok.vermelho { background:var(--urgente); }
+    .modal-btn-cancel { background:var(--fundo); color:var(--grafite); border:1px solid var(--linha) !important; }
+
     /* CHIPS DE ÁREA */
     .areas-chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
     .chip { display:inline-flex; align-items:center; gap:6px; background:#E5F2E9; color:var(--verde); font-size:13px; font-weight:600; padding:6px 10px; border-radius:20px; }
@@ -258,10 +279,81 @@
 
   </div>
 
+  <!-- MODAL WINDOWS -->
+  <div class="modal-overlay oculto" id="modalOverlay" onclick="modalFecharFora(event)">
+    <div class="modal-janela" id="modalJanela" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <span class="modal-icone" id="modalIcone">❓</span>
+        <span class="modal-titulo" id="modalTitulo">Confirmação</span>
+      </div>
+      <div class="modal-corpo">
+        <p id="modalMensagem"></p>
+        <textarea id="modalInput" style="display:none;" rows="3" placeholder=""></textarea>
+      </div>
+      <div class="modal-rodape">
+        <button class="modal-btn-cancel" id="modalBtnCancelar" onclick="modalCancelar()">Cancelar</button>
+        <button class="modal-btn-ok" id="modalBtnOk" onclick="modalConfirmar()">OK</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     var papel = { email:'', areasSupervisionadas:[], admin:false };
     var areasConfig = [];
     var supervisoresConfig = [];
+
+    // -------- MODAL ENGINE --------
+    var _modalCallback = null;
+
+    function _abrirModal(opcoes) {
+      document.getElementById('modalIcone').textContent    = opcoes.icone    || '❓';
+      document.getElementById('modalTitulo').textContent   = opcoes.titulo   || 'Confirmação';
+      document.getElementById('modalMensagem').textContent = opcoes.mensagem || '';
+      var input = document.getElementById('modalInput');
+      var temInput = !!opcoes.placeholder;
+      input.style.display = temInput ? '' : 'none';
+      input.placeholder   = opcoes.placeholder || '';
+      input.value         = opcoes.valorInicial || '';
+      input.style.minHeight = opcoes.minHeight || '72px';
+      var btnOk = document.getElementById('modalBtnOk');
+      btnOk.textContent = opcoes.rotuloBtnOk || 'OK';
+      btnOk.className   = 'modal-btn-ok ' + (opcoes.corOk || '');
+      document.getElementById('modalBtnCancelar').style.display = opcoes.semCancelar ? 'none' : '';
+      _modalCallback = opcoes.callback || null;
+      document.getElementById('modalOverlay').classList.remove('oculto');
+      setTimeout(function () { (temInput ? input : btnOk).focus(); }, 80);
+    }
+
+    function modalConfirmar() {
+      var input = document.getElementById('modalInput');
+      var valor = input.style.display !== 'none' ? input.value : true;
+      document.getElementById('modalOverlay').classList.add('oculto');
+      if (_modalCallback) _modalCallback(valor);
+    }
+
+    function modalCancelar() {
+      document.getElementById('modalOverlay').classList.add('oculto');
+      _modalCallback = null;
+    }
+
+    function modalFecharFora(e) {
+      if (e.target === document.getElementById('modalOverlay')) modalCancelar();
+    }
+
+    document.addEventListener('keydown', function (e) {
+      if (document.getElementById('modalOverlay').classList.contains('oculto')) return;
+      if (e.key === 'Escape') modalCancelar();
+      if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') { e.preventDefault(); modalConfirmar(); }
+    });
+
+    function showConfirm(icone, titulo, mensagem, corOk, rotuloBtnOk, cb) {
+      _abrirModal({ icone: icone, titulo: titulo, mensagem: mensagem, corOk: corOk, rotuloBtnOk: rotuloBtnOk || 'Confirmar', callback: function (v) { if (v) cb(); } });
+    }
+
+    function showPrompt(icone, titulo, mensagem, placeholder, corOk, rotuloBtnOk, cb) {
+      _abrirModal({ icone: icone, titulo: titulo, mensagem: mensagem, placeholder: placeholder, corOk: corOk, rotuloBtnOk: rotuloBtnOk || 'Enviar', callback: function (v) { cb(v); } });
+    }
+    // -------- FIM MODAL ENGINE --------
 
     window.onload = function () {
       google.script.run.withSuccessHandler(aplicarPapel).getPapelUsuario();
@@ -434,9 +526,12 @@
     }
 
     function excluir(id) {
-      if (!confirm('Excluir este comunicado?')) return;
-      google.script.run.withSuccessHandler(carregarMeus)
-        .withFailureHandler(function (e){ alert(e.message); }).excluirComunicado(id);
+      showConfirm('🗑️', 'Excluir comunicado', 'Tem certeza que deseja excluir este comunicado? Esta ação não pode ser desfeita.', 'vermelho', 'Excluir', function () {
+        google.script.run.withSuccessHandler(carregarMeus)
+          .withFailureHandler(function (e) {
+            _abrirModal({ icone:'⚠️', titulo:'Erro', mensagem: e.message, semCancelar: true, rotuloBtnOk:'Fechar', callback: null });
+          }).excluirComunicado(id);
+      });
     }
 
     // ---------- REVISÃO ----------
@@ -486,39 +581,48 @@
     }
 
     function aprovar(id, agora) {
-      if (agora && !confirm('Aprovar e postar AGORA no chat de toda a equipe?')) return;
-      google.script.run
-        .withSuccessHandler(function () {
-          mostrarAviso('avisoRevisao', agora ? 'Aprovado e enviado! ⚡' : 'Aprovado. Vai no próximo resumo. ✅','ok');
-          carregarRevisao(); atualizarContadorRevisao();
-        })
-        .withFailureHandler(function (e){ mostrarAviso('avisoRevisao','Erro: ' + e.message,'erro'); })
-        .aprovarComunicado(id, agora);
+      function _executarAprovacao() {
+        google.script.run
+          .withSuccessHandler(function () {
+            mostrarAviso('avisoRevisao', agora ? 'Aprovado e enviado! ⚡' : 'Aprovado. Vai no próximo resumo. ✅','ok');
+            carregarRevisao(); atualizarContadorRevisao();
+          })
+          .withFailureHandler(function (e){ mostrarAviso('avisoRevisao','Erro: ' + e.message,'erro'); })
+          .aprovarComunicado(id, agora);
+      }
+      if (agora) {
+        showConfirm('⚡', 'Aprovar e enviar agora', 'Este comunicado será postado IMEDIATAMENTE no chat de toda a equipe. Deseja continuar?', 'verde', 'Aprovar e Enviar', _executarAprovacao);
+      } else {
+        _executarAprovacao();
+      }
     }
 
     function reprovar(id) {
-      var motivo = prompt('Motivo da reprovação (opcional):','');
-      if (motivo === null) return;
-      google.script.run
-        .withSuccessHandler(function () {
-          mostrarAviso('avisoRevisao','Comunicado reprovado.','ok');
-          carregarRevisao(); atualizarContadorRevisao();
-        })
-        .withFailureHandler(function (e){ mostrarAviso('avisoRevisao','Erro: ' + e.message,'erro'); })
-        .reprovarComunicado(id, motivo);
+      showPrompt('❌', 'Reprovar comunicado', 'Informe o motivo da reprovação (opcional). O autor será notificado.', 'Ex: A mensagem está incompleta…', 'vermelho', 'Reprovar', function (motivo) {
+        google.script.run
+          .withSuccessHandler(function () {
+            mostrarAviso('avisoRevisao','Comunicado reprovado.','ok');
+            carregarRevisao(); atualizarContadorRevisao();
+          })
+          .withFailureHandler(function (e){ mostrarAviso('avisoRevisao','Erro: ' + e.message,'erro'); })
+          .reprovarComunicado(id, motivo);
+      });
     }
 
     function solicitarCorrecaoRev(id) {
-      var motivo = prompt('O que o autor precisa ajustar?','');
-      if (motivo === null) return;
-      if (!motivo.trim()) { alert('Por favor, descreva o ajuste necessário.'); return; }
-      google.script.run
-        .withSuccessHandler(function () {
-          mostrarAviso('avisoRevisao','Correção solicitada ao autor.','ok');
-          carregarRevisao(); atualizarContadorRevisao();
-        })
-        .withFailureHandler(function (e){ mostrarAviso('avisoRevisao','Erro: ' + e.message,'erro'); })
-        .solicitarCorrecao(id, motivo);
+      showPrompt('✏️', 'Solicitar correção', 'O que o autor precisa ajustar? O comunicado voltará para edição do autor com este comentário.', 'Descreva o ajuste necessário…', '', 'Solicitar', function (motivo) {
+        if (!motivo.trim()) {
+          _abrirModal({ icone:'⚠️', titulo:'Campo obrigatório', mensagem:'Por favor, descreva o ajuste necessário antes de enviar.', semCancelar:true, rotuloBtnOk:'Entendi', callback: function () { solicitarCorrecaoRev(id); } });
+          return;
+        }
+        google.script.run
+          .withSuccessHandler(function () {
+            mostrarAviso('avisoRevisao','Correção solicitada ao autor.','ok');
+            carregarRevisao(); atualizarContadorRevisao();
+          })
+          .withFailureHandler(function (e){ mostrarAviso('avisoRevisao','Erro: ' + e.message,'erro'); })
+          .solicitarCorrecao(id, motivo);
+      });
     }
 
     // ---------- CONFIGURAÇÕES ----------
